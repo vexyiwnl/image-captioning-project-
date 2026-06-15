@@ -1,0 +1,11 @@
+# .gitignore
+__pycache__/
+.vscode/
+*.pth
+*.pt
+.ipynb_checkpoints/
+flickr30k/
+captions.txt
+results.csv
+checkpoints_flickr30k/
+checkpoints_flickr30k.zip
