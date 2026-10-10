@@ -9,3 +9,7 @@ captions.txt
 results.csv
 checkpoints_flickr30k/
 checkpoints_flickr30k.zip
+coco/
+features_coco/
+checkpoints_coco/
+.venv/
