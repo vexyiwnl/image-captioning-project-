@@ -23,7 +23,7 @@ Comparison with published models trained with cross-entropy loss only (no reinfo
 | ClipCap, Transformer + frozen GPT-2 (Mokady et al., 2021) | 43M | 33.5 | 27.5 | 113.1 |
 | ClipCap, MLP + fine-tuned GPT-2 (Mokady et al., 2021) | 156M | 32.2 | 27.1 | 108.4 |
 
-Comparison numbers are from Table 1 of the [ClipCap paper](https://arxiv.org/abs/2111.09734). This model comes within 1 CIDEr point of ClipCap and Bottom-Up Top-Down with fewer trainable parameters, without a pretrained language model or object detector. Training takes **~80 minutes on a laptop RTX 4050 (6 GB)**.
+Comparison numbers are from Table 1 of the [ClipCap paper](https://arxiv.org/abs/2111.09734). This model comes within 1 CIDEr point of ClipCap and Bottom-Up Top-Down with fewer trainable parameters, without a pretrained language model or object detector. Training takes **~80 minutes on a laptop RTX 4050 (6 GB)**, plus a one-time ~6 minutes to cache the CLIP features and ~8 minutes for test evaluation.
 
 ## How it works
 
@@ -47,6 +47,6 @@ Download COCO into `coco/` (the commands are in the notebook's first cell), then
 
 ## Earlier version: ResNet-101 on Flickr30k
 
-`flickr30k_image_captioning.ipynb` is the first version of this project: a ResNet-101 encoder (last block fine-tuned) (7×7 grid, 49 visual tokens) with the same style of Transformer decoder, trained on Flickr30k with AMP and dynamic padding. It reached a BLEU-4 of 22.81 (NLTK corpus BLEU on its validation split). Because it uses a different dataset, split and scorer, that number can't be compared with the COCO results above. Moving to COCO + CLIP and the standard evaluation toolkit was what made a comparison with published work possible.
+`flickr30k_image_captioning.ipynb` is the first version of this project: a ResNet-101 encoder (last block fine-tuned) that outputs a 7×7 grid of 49 visual tokens, paired with the same style of Transformer decoder, trained on Flickr30k with AMP and dynamic padding. It reached a BLEU-4 of 22.81 (NLTK corpus BLEU on its validation split). Because it uses a different dataset, split and scorer, that number can't be compared with the COCO results above. Moving to COCO + CLIP and the standard evaluation toolkit was what made a comparison with published work possible.
 
 Its checkpoint is [on Google Drive](https://drive.google.com/file/d/1hkLgYBT7KS7Hw1JuCtUrzTuFlLjQh6xO/view?usp=sharing).

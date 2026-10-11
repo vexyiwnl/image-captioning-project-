@@ -9,4 +9,5 @@ pillow
 tqdm
 nltk
 jupyterlab
+ipywidgets
 ipykernel
