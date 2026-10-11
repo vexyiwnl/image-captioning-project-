@@ -1,86 +1,52 @@
-# 👁️📝 Image Captioning with ResNet-101 & Transformers
+# Image Captioning with CLIP & Transformers
 
-An end-to-end deep learning pipeline for generating descriptive text from images, trained on the **Flickr30k** dataset. This project implements a custom sequence-to-sequence architecture utilizing a Convolutional Neural Network (CNN) as the visual encoder and an autoregressive Transformer as the caption decoder.
+Generates natural-language captions for images. A frozen **CLIP ViT-B/32** encodes the image and a **Transformer decoder trained from scratch** writes the caption. Trained on **MS COCO 2014** using the standard **Karpathy split** and scored with the official COCO caption toolkit, so the numbers can be compared directly with published results.
 
-## 🧠 Architecture Overview
+## Results (COCO Karpathy test split, 5,000 images)
 
-* **Visual Encoder (ResNet-101):** Extracts a `7x7` spatial feature grid from input images, flattened into 49 distinct visual tokens.
-* **Caption Decoder:** A custom PyTorch `nn.TransformerDecoderLayer` built from scratch. It uses masked self-attention for the generated text and cross-attention to ground the text generation in the extracted visual tokens.
-* **Inference:** Features a custom implementation of **Beam Search** to accumulate log-probabilities and generate highly fluent captions rather than relying on greedy decoding.
+| Metric | Score |
+| :--- | :---: |
+| BLEU-1 | 73.64 |
+| BLEU-2 | 57.30 |
+| BLEU-3 | 43.76 |
+| BLEU-4 | 33.36 |
+| METEOR | 28.15 |
+| ROUGE-L | 55.92 |
+| **CIDEr** | **112.67** |
 
-## ⚙️ Hardware & Training Optimizations
-To maximize throughput and stabilize training on consumer hardware (RTX 4050), several optimizations were implemented:
-* **Automatic Mixed Precision (AMP):** Utilized `torch.cuda.amp.autocast` and `GradScaler` alongside `allow_tf32=True` for accelerated tensor core utilization.
-* **Dynamic Sequence Padding:** Implemented a custom `collate_fn` using `pad_sequence` to avoid global padding overhead, drastically speeding up data loading.
-* **Regularization:** Label Smoothing (0.1), Dropout, and Weight Decay (1e-4) to prevent overfitting on the Flickr30k vocabulary.
+Comparison with published models trained with cross-entropy loss only (no reinforcement-learning fine-tuning) on the same split:
 
-## 📊 Performance & Evaluation
-The model was evaluated using **Corpus BLEU** against the 5 human-annotated reference captions per image in the Flickr30k validation set.
+| Model | Trainable params | BLEU-4 | METEOR | CIDEr |
+| :--- | :---: | :---: | :---: | :---: |
+| **This project (frozen CLIP ViT-B/32 + Transformer decoder)** | 27M | **33.4** | **28.2** | **112.7** |
+| Bottom-Up Top-Down (Anderson et al., 2018) | 52M | 36.2 | 27.0 | 113.5 |
+| ClipCap, Transformer + frozen GPT-2 (Mokady et al., 2021) | 43M | 33.5 | 27.5 | 113.1 |
+| ClipCap, MLP + fine-tuned GPT-2 (Mokady et al., 2021) | 156M | 32.2 | 27.1 | 108.4 |
 
-| Metric | Score | 
-| :--- | :--- |
-| **BLEU-1** | 64.12 |
-| **BLEU-2** | 46.54 |
-| **BLEU-3** | 32.74 |
-| **BLEU-4** | **22.81** |
+Comparison numbers are from Table 1 of the [ClipCap paper](https://arxiv.org/abs/2111.09734). This model comes within 1 CIDEr point of ClipCap and Bottom-Up Top-Down with fewer trainable parameters, without a pretrained language model or object detector. Training takes **~80 minutes on a laptop RTX 4050 (6 GB)**.
 
-*A BLEU-4 score of 22.81 demonstrates strong spatial understanding and the ability to generate coherent, multi-word descriptive phrases.*
+## How it works
 
-## 🚀 Quick Start
+* **Encoder:** frozen `openai/clip-vit-base-patch32`. Each image becomes 50 tokens (1 class token + 7×7 patches). These are computed once and cached to disk as float16 (~9.5 GB), so training never runs the vision model.
+* **Decoder:** a 4-layer Transformer decoder (d_model 512, 8 heads, 10k-word vocabulary), built from scratch, with causal self-attention over the caption and cross-attention over the projected CLIP tokens.
+* **Training:** AdamW with linear warmup and cosine decay, label smoothing 0.1, bfloat16 autocast, and gradient clipping. The model with the best val loss is kept, and training stops early after 3 epochs without improvement. In this run, epoch 8 of 11 was best.
+* **Decoding:** beam search (beam 3) with **trigram blocking**, which stops repetitive loops like *"a girl in a pink shirt and a girl in a pink shirt"*.
+* **Evaluation:** `pycocoevalcap` (PTB tokenizer, BLEU, METEOR, ROUGE-L, CIDEr) on the 5,000-image test split. The val split is only used for checkpoint selection.
 
-### Prerequisites
-* Python 3.8+
-* PyTorch (with CUDA support)
-* Pillow, NLTK, Pandas, tqdm
+## Quick start
 
-### Inference
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/yourusername/flickr30k-image-captioning.git
-   cd flickr30k-image-captioning
+```bash
+git clone https://github.com/vexyiwnl/image-captioning-project-.git
+cd image-captioning-project-
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+sudo apt install default-jre        # METEOR and the PTB tokenizer need Java
+```
 
-2. Add checkpoint:
-    Download the checkpoints folder from: https://drive.google.com/file/d/1hkLgYBT7KS7Hw1JuCtUrzTuFlLjQh6xO/view?usp=sharing
-    Paste it in the project folder
+Download COCO into `coco/` (the commands are in the notebook's first cell), then open `coco_clip_captioning.ipynb` and run all cells. Re-running the training cell resumes from the last checkpoint.
 
-3. Then create a new cell and run:
-    ```
-    import torch
-    from PIL import Image
-    from torchvision import transforms
+## Earlier version: ResNet-101 on Flickr30k
 
-    # Setup Device
-    DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+`flickr30k_image_captioning.ipynb` is the first version of this project: a ResNet-101 encoder (last block fine-tuned) (7×7 grid, 49 visual tokens) with the same style of Transformer decoder, trained on Flickr30k with AMP and dynamic padding. It reached a BLEU-4 of 22.81 (NLTK corpus BLEU on its validation split). Because it uses a different dataset, split and scorer, that number can't be compared with the COCO results above. Moving to COCO + CLIP and the standard evaluation toolkit was what made a comparison with published work possible.
 
-    # Load Checkpoint and Vocabulary
-    checkpoint = torch.load('checkpoints_flickr30k/best_model.pt', map_location=DEVICE)
-    vocab = Vocabulary.from_state(checkpoint['vocab_state'])
-
-    # Initialize Model 
-    model = ImageCaptioner(
-        vocab_size=len(vocab),
-        d_model=512,
-        n_head=8,
-        n_layers=4,
-        dim_ffn=2048,
-        max_len=42
-    ).to(DEVICE)
-
-    model.load_state_dict(checkpoint['model_state'])
-    model.eval()
-
-    # Prepare Image 
-    transform = transforms.Compose([
-        transforms.Resize(256),
-        transforms.CenterCrop(224),
-        transforms.ToTensor(),
-        transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
-    ])
-
-    image = Image.open("sample_image.jpg").convert("RGB")
-    image_tensor = transform(image).unsqueeze(0).to(DEVICE)
-
-    # Generate text using Beam Search
-    predicted_caption = model.generate(image_tensor, vocab, max_len=42, beam_size=3)
-    print("Generated Caption:", predicted_caption)
-    ```
+Its checkpoint is [on Google Drive](https://drive.google.com/file/d/1hkLgYBT7KS7Hw1JuCtUrzTuFlLjQh6xO/view?usp=sharing).
