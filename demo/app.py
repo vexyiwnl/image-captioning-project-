@@ -12,7 +12,7 @@ import torch.nn.functional as F
 from transformers import CLIPImageProcessor, CLIPVisionModel
 
 HERE = Path(__file__).parent
-BEAM_SIZE = 3
+BEAM_SIZE = 5  # Test scores were measured with beam 3; 5 gave more specific captions on hand-picked photos.
 MAX_WORDS = 20
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 CLIP_DTYPE = torch.float16 if DEVICE.type == "cuda" else torch.float32
