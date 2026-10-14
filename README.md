@@ -2,6 +2,10 @@
 
 Generates natural-language captions for images. A frozen **CLIP ViT-B/32** encodes the image and a **Transformer decoder trained from scratch** writes the caption. Trained on **MS COCO 2014** using the standard **Karpathy split** and scored with the official COCO caption toolkit, so the numbers can be compared directly with published results.
 
+![Demo screenshot](demo/screenshot.png)
+
+A Gradio demo lives in [`demo/`](demo/). Upload any image to get a caption. See [`demo/README.md`](demo/README.md) for how to run it locally.
+
 ## Results (COCO Karpathy test split, 5,000 images)
 
 | Metric | Score |

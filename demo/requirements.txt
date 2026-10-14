@@ -1,3 +1,5 @@
 torch
 transformers>=5
 pillow
+gradio
+huggingface_hub
